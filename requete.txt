@@ -1,0 +1,44 @@
+CREATE OR REPLACE FUNCTION trouveTousLesPoints(
+	west numeric(22,13), north numeric(22,13),
+	east numeric(22,13), south numeric(22,13),
+	nbX integer, nbY integer)
+	RETURNS TABLE (
+		latitude numeric(22,13),
+		longitude numeric(22,13),
+		priority numeric(10,7),
+		linkimg text
+		)
+	AS $$
+
+	DECLARE
+		i numeric(3);
+		j numeric(3);
+
+	BEGIN
+		CREATE TEMP TABLE res (
+			po_latitude numeric(22,13),
+			po_longitude numeric(22,13),
+			po_priority numeric(10,7),
+			po_linkimg text
+		);
+		i := 1;
+		WHILE i < ($5 + 1) LOOP
+			j := 1;
+			WHILE j < ($6 + 1) LOOP
+				INSERT INTO res (po_priority, po_latitude, po_longitude, po_linkimg) 
+				SELECT points.po_priority, points.po_latitude, points.po_longitude, points.po_linkimg
+				FROM ST_CreateFishnet($5 , $6, ($1-$3)/$5, ($2-$4)/$6, $3, $4) as cells,
+				public.poi as points
+				WHERE cells.row = i AND cells.col = j AND ST_Within(points.po_geom, cells.geom)
+				ORDER BY points.po_priority DESC
+				LIMIT 1;
+				j := j+1;
+			END LOOP;
+			i := i+1;
+		END LOOP;
+		RETURN QUERY SELECT po_latitude AS latitude, po_longitude AS longitude, po_priority AS priority, po_linkimg AS linkimg
+		FROM res;
+	END
+	$$ LANGUAGE plpgsql; 
+
+

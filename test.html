@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+  <head>
+    <!--
+            Inclusion de la bibliothèque Leaflet et sa feuille de style.
+            L'include du js pourrait aussi être fait a la fin du <body>
+        -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/leaflet.js"></script>
+
+    <!-- Une feuille de style éventuel -->
+    <link rel="stylesheet" href="style.css">
+    <meta charset="utf-8"/>
+
+    <title>Test Affichage</title>
+  </head>
+
+ <body>
+        <main>
+                <form name="testpoiform" id="testpoiform" method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="server">Select Server : </label>
+                        <select class="form-control" id="server">
+                            <option value="https://very-road-trip.herokuapp.com">heroku</option>
+                            <option value="http://localhost:3000">local</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                            <button type="submit" class="btn btn-primary">Submit</button>
+                    </div>
+                    <div id="results">
+
+                    </div>
+
+                </form>
+        </main>
+
+    </body>
+</html>
+
+<script src="js/jquery-3.3.1.min.js"></script>
+
+<div id="macarte" style="width:500px; height:500px"></div>
+
+
+<script>
+    /*
+        var boundsobj = {
+            "south": bounds.getSouth(),
+            "west": bounds.getWest(),
+            "north": bounds.getNorth(),
+            "east":  bounds.getEast()
+        }
+        let params = new URLSearchParams(boundsobj);
+
+        */
+        var width = ($(window).width()-20)*0.9;
+        var height = ($(window).height()-90)*0.9;
+        var stringWidth = width.toString(10) + 'px';
+        var stringHeight = height.toString(10) + 'px';
+        console.log(stringWidth);
+        console.log(stringHeight);
+
+        document.getElementById('macarte').style.height = stringHeight;
+        document.getElementById('macarte').style.width = stringWidth;
+
+        var nbX = Math.floor((width/1.2)/100);
+        var nbY = Math.floor((height/1.2)/120);
+        var nbMin = Math.min(nbX,nbY);
+        console.log(nbX);
+        console.log(nbY);
+        console.log(nbMin);
+
+
+        var carte = L.map('macarte').setView([48.7, 6.2], 8);
+      	L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+      	}).addTo(carte);
+
+      	var petitPoint = L.icon({
+      		iconUrl: 'point.png',
+      		iconSize:     [25, 30],
+      		iconAnchor: [12, 30]
+      	});
+
+      	var point = L.icon({
+      		iconUrl: 'point.png',
+      		iconSize:     [50, 60],
+      		iconAnchor: [25,60]
+      	});
+      	var grandPoint = L.icon({
+      		iconUrl: 'point.png',
+      		iconSize:     [100, 120],
+      		iconAnchor: [50,120]
+      	});
+
+      	var iconPerso;
+
+        var myList = document.getElementById('results');
+
+        var markersLayer = L.featureGroup().addTo(carte).on("click", groupClick);
+        
+        $('form#testpoiform').submit(function(e) {
+            markersLayer.clearLayers();
+        	console.log('Entrée Submit');
+        	var bounds = L.latLngBounds(carte.getBounds());
+        	console.log(bounds);
+        	let server = document.getElementById("server");
+            let selserver = server.options[server.selectedIndex].value;
+            let form = new FormData(document.getElementById('testpoiform'));
+            console.log(`${selserver}/Coordonnees?south=${bounds.getSouth()}&east=${bounds.getEast()}&north=${bounds.getNorth()}&west=${bounds.getWest()}`)
+            let myRequest = new Request(`${selserver}/Coordonnees?south=${bounds.getSouth()}&east=${bounds.getEast()}&north=${bounds.getNorth()}&west=${bounds.getWest()}`, {
+                method: 'GET'
+            });
+            console.log(myRequest);
+            fetch(myRequest).then(function(response) {
+                console.log(response.bodyUsed);
+                var res = response.json();
+                console.log(response.bodyUsed)
+                console.log(res)
+                return res;
+            }).then(function(data) {for (var i = 0; i < data.length; i++) {
+      			/*var listItem = document.createElement('li');
+      			listItem.innerHTML = data[i].po_latitude;
+      			myList.appendChild(listItem);*/
+      			if(data[i].po_priority <= 30){
+      				if(data.po_linkimg =! null){
+      					iconPerso = L.icon({
+      						iconUrl: data[i].po_linkimg,
+      						iconSize:     [25, 30],
+      						iconAnchor: [12, 30]
+      					});
+      					var marker = L.marker([data[i].po_latitude, data[i].po_longitude], {icon: iconPerso}).addTo(markersLayer);
+      				} else {
+      				var marker = L.marker([data[i].po_latitude, data[i].po_longitude], {icon: petitPoint}).addTo(markersLayer);
+      				}
+      			} else{
+      				if(data[i].po_priority >= 70){
+      					if(data.po_linkimg =! null){
+      						iconPerso = L.icon({
+      						iconUrl: data[i].po_linkimg,
+      						iconSize:     [100, 120],
+      						iconAnchor: [50, 120]
+      						});
+      					var marker = L.marker([data[i].po_latitude, data[i].po_longitude], {icon: iconPerso}).addTo(markersLayer);
+      					} else {
+      						var marker = L.marker([data[i].po_latitude, data[i].po_longitude], {icon: grandPoint}).addTo(markersLayer);
+      					}
+      				} else {
+      					if(data.po_linkimg =! null){
+      						iconPerso = L.icon({
+      						iconUrl: data[i].po_linkimg,
+      						iconSize:     [50, 60],
+      						iconAnchor: [25, 60]
+      						});
+      						var marker = L.marker([data[i].po_latitude, data[i].po_longitude], {icon: iconPerso}).addTo(markersLayer);
+      					} else {
+      						var marker = L.marker([data[i].po_latitude, data[i].po_longitude], {icon: point}).addTo(markersLayer);
+      					}
+     
+      				}
+      			}	
+    		}
+            }).catch(function(error){
+                console.log(error);
+            });
+            return false;
+        })
+
+        carte.on('moveend', function(){
+        	markersLayer.clearLayers();
+        	console.log('Entrée Move');
+        	var bounds = L.latLngBounds(carte.getBounds());
+        	console.log(bounds);
+        	let server = document.getElementById("server");
+            let selserver = server.options[server.selectedIndex].value;
+            let form = new FormData(document.getElementById('testpoiform'));
+            console.log(`${selserver}/Coordonnees/Mouv?south=${bounds.getSouth()}&east=${bounds.getEast()}&north=${bounds.getNorth()}&west=${bounds.getWest()}&nbX=${nbX}&nbY=${nbY}`)
+            let myRequest = new Request(`${selserver}/Coordonnees/Mouv?south=${bounds.getSouth()}&east=${bounds.getEast()}&north=${bounds.getNorth()}&west=${bounds.getWest()}&nbX=${nbMin}&nbY=${nbMin}`, {
+                method: 'GET'
+            });
+            console.log(myRequest);
+            fetch(myRequest).then(function(response) {
+                console.log(response.bodyUsed);
+                var res = response.json();
+                console.log(response.bodyUsed)
+                console.log(res)
+                return res;
+            }).then(function(data) {for (var i = 0; i < data.length; i++) {
+      			/*var listItem = document.createElement('li');
+      			listItem.innerHTML = data[i].po_latitude;
+      			myList.appendChild(listItem);*/
+      			if(data[i].priority <= 30){
+      				if(data[i].linkimg != null){
+      					iconPerso = L.icon({
+      						iconUrl: data[i].linkimg,
+      						iconSize:     [25, 30],
+      						iconAnchor: [12, 30]
+      					});
+      					var marker = L.marker([data[i].latitude, data[i].longitude], {icon: iconPerso}).addTo(markersLayer);
+      				} else {
+      				var marker = L.marker([data[i].latitude, data[i].longitude], {icon: petitPoint}).addTo(markersLayer);
+      				}
+      			} else{
+      				if(data[i].priority >= 70){
+      					if(data[i].linkimg != null){
+      						console.log(data[i].linkimg =! null);
+      						iconPerso = L.icon({
+      						iconUrl: data[i].linkimg,
+      						iconSize:     [100, 120],
+      						iconAnchor: [50, 120]
+      						});
+      						var marker = L.marker([data[i].latitude, data[i].longitude], {icon: iconPerso}).addTo(markersLayer);
+      					} else {
+      						var marker = L.marker([data[i].latitude, data[i].longitude], {icon: grandPoint}).addTo(markersLayer);
+      					}
+      				} else {
+      					if(data[i].linkimg != null){
+      						iconPerso = L.icon({
+      						iconUrl: data[i].linkimg,
+      						iconSize:     [50, 60],
+      						iconAnchor: [25, 60]
+      						});
+      						var marker = L.marker([data[i].latitude, data[i].longitude], {icon: iconPerso}).addTo(markersLayer);
+      					} else {
+      						var marker = L.marker([data[i].latitude, data[i].longitude], {icon: point}).addTo(markersLayer);
+      					}
+     
+      				}
+      			}	
+    		}
+            }).catch(function(error){
+                console.log(error);
+            });
+            return false;
+        })
+
+        
+
+        function groupClick(event) {
+        	console.log('UpdateClick')
+        	var clickedMarker = event.layer;
+        	var coord = clickedMarker.getLatLng();
+        	let server = document.getElementById("server");
+            let selserver = server.options[server.selectedIndex].value;
+            let form = new FormData(document.getElementById('testpoiform'));
+            console.log(`${selserver}/Coordonnees/UpdateClick?lat=${coord.lat}&lng=${coord.lng}`)
+            let myRequest = new Request(`${selserver}/Coordonnees/UpdateClick?lat=${coord.lat}&lng=${coord.lng}`, {
+                method: 'GET'
+            });
+            console.log(myRequest);
+            fetch(myRequest).then(function(response) {
+                console.log(response.bodyUsed);
+                var res = response.json();
+                console.log(response.bodyUsed)
+                console.log(res)
+                return res;
+            }).then(function(data) {
+            }).catch(function(error){
+                console.log(error);
+            });
+            return false;
+        }
+
+
+
+
+</script>
